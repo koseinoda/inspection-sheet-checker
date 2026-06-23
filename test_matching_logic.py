@@ -355,6 +355,52 @@ class TestAddressExtraction:
         assert a == b
 
 
+# ============================================================
+# Excel読み込み（.xlsx / .xls の両対応）
+# ============================================================
+
+class TestWorkbookReading:
+    def test_get_file_extension_basic(self):
+        assert ml.get_file_extension("点検表.xlsx") == "xlsx"
+        assert ml.get_file_extension("点検表.XLS") == "xls"
+        assert ml.get_file_extension("拡張子無し") == ""
+        assert ml.get_file_extension(None) == ""
+
+    def test_load_workbook_any_reads_xlsx(self, tmp_path):
+        openpyxl = __import__("openpyxl")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "1"
+        ws["B8"] = "無"
+        ws["C8"] = "形状サンプル"
+        xlsx_path = tmp_path / "test.xlsx"
+        wb.save(str(xlsx_path))
+
+        reader = ml.load_workbook_any(str(xlsx_path), "test.xlsx")
+
+        assert reader.sheet_names == ["1"]
+        assert reader.get_cell("1", 8, 2) == "無"
+        assert reader.get_cell("1", 8, 3) == "形状サンプル"
+
+    def test_load_workbook_any_raises_clear_error_when_xlrd_missing_for_xls(self, tmp_path):
+        # xlrdがインストールされていない環境でも、エラー内容が分かりやすいことを確認する
+        # （xlrdが入っている環境ではこのテストはスキップしても問題ない）
+        try:
+            import xlrd  # noqa: F401
+            return  # xlrdがある環境ではこのテストは対象外
+        except ImportError:
+            pass
+
+        dummy_xls_path = tmp_path / "dummy.xls"
+        dummy_xls_path.write_bytes(b"dummy")
+
+        try:
+            ml.load_workbook_any(str(dummy_xls_path), "dummy.xls")
+            assert False, "RuntimeErrorが発生するはずだった"
+        except RuntimeError as e:
+            assert "xlrd" in str(e)
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-v"]))

@@ -605,3 +605,75 @@ def is_excluded(item, excel_value, pdf_status):
     if pdf_str == "要確認":
         return True
     return False
+
+
+# ============================================================
+# Excel読み込み（.xlsx / .xls の両方に対応）
+# ============================================================
+
+def get_file_extension(name):
+    """ファイル名・パスから拡張子（小文字、ドット無し）を取り出す。"""
+    if not name or "." not in name:
+        return ""
+    return name.rsplit(".", 1)[-1].lower()
+
+
+class WorkbookReader:
+    """
+    .xlsx（openpyxl）と.xls（xlrd）の両方を同じインターフェースで
+    読めるようにする薄いラッパー。
+
+    - sheet_names: シート名の一覧
+    - get_cell(sheet_name, row, col): 指定したセルの値を取得する
+      （row, colはopenpyxlと同じく1始まり）
+    """
+
+    def __init__(self, sheet_names, get_cell_func):
+        self.sheet_names = sheet_names
+        self._get_cell_func = get_cell_func
+
+    def get_cell(self, sheet_name, row, col):
+        return self._get_cell_func(sheet_name, row, col)
+
+
+def load_workbook_any(path, filename=""):
+    """
+    拡張子に応じて、.xlsx（openpyxl）・.xls（xlrd）のどちらでも読み込める
+    WorkbookReaderを返す。filenameを省略した場合はpath自体の拡張子を見る。
+    """
+    ext = get_file_extension(filename) or get_file_extension(path)
+
+    if ext == "xls":
+        try:
+            import xlrd
+        except ImportError as e:
+            raise RuntimeError(
+                "「.xls」形式のファイルを読み込むには xlrd ライブラリが必要です。"
+                "コマンドプロンプトで `pip install xlrd` を実行してください。"
+            ) from e
+
+        book = xlrd.open_workbook(path)
+        sheet_names = list(book.sheet_names())
+
+        def get_cell(sheet_name, row, col):
+            sheet = book.sheet_by_name(sheet_name)
+            r = row - 1
+            c = col - 1
+            if r < 0 or r >= sheet.nrows or c < 0 or c >= sheet.ncols:
+                return None
+            value = sheet.cell_value(r, c)
+            return value if value != "" else None
+
+        return WorkbookReader(sheet_names, get_cell)
+
+    # デフォルトは.xlsx（openpyxl）として読み込む
+    from openpyxl import load_workbook as _load_workbook
+
+    wb = _load_workbook(path, data_only=True)
+    sheet_names = list(wb.sheetnames)
+
+    def get_cell(sheet_name, row, col):
+        ws = wb[sheet_name]
+        return ws.cell(row=row, column=col).value
+
+    return WorkbookReader(sheet_names, get_cell)

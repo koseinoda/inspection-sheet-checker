@@ -1,5 +1,4 @@
 import streamlit as st
-from openpyxl import load_workbook
 import tempfile
 import pandas as pd
 import pdfplumber
@@ -17,7 +16,7 @@ st.title("変状図・点検表 整合性チェックシステム")
 
 col_up1, col_up2 = st.columns(2)
 with col_up1:
-    excel_file = st.file_uploader("点検表Excelをアップロード", type=["xlsx"])
+    excel_file = st.file_uploader("点検表Excelをアップロード", type=["xlsx", "xls"])
 with col_up2:
     pdf_file = st.file_uploader("変状図PDFをアップロード", type=["pdf"])
 
@@ -68,25 +67,32 @@ def add_notice(level, message):
 
 
 if excel_file is not None:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+    excel_ext = ml.get_file_extension(excel_file.name)
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{excel_ext or 'xlsx'}") as tmp:
         tmp.write(excel_file.read())
         excel_path = tmp.name
 
-    wb = load_workbook(excel_path, data_only=True)
-    sheet_names = sorted(wb.sheetnames, key=lambda x: int(x))
+    try:
+        reader = ml.load_workbook_any(excel_path, excel_file.name)
+    except Exception as e:
+        st.error(f"Excelファイルの読み込みに失敗しました：{e}")
+        reader = None
 
-    excel_rows = []
-    for sheet_name in sheet_names:
-        ws = wb[sheet_name]
-        for item, row_num in ITEM_ROWS.items():
-            excel_rows.append({
-                "換気口No": sheet_name,
-                "点検項目": item,
-                "Excel_変状有無": ws.cell(row=row_num, column=2).value,
-                "Excel_形状": ws.cell(row=row_num, column=3).value,
-            })
+    if reader is not None:
+        sheet_names = sorted(reader.sheet_names, key=lambda x: int(x))
 
-    excel_df = pd.DataFrame(excel_rows)
+        excel_rows = []
+        for sheet_name in sheet_names:
+            for item, row_num in ITEM_ROWS.items():
+                excel_rows.append({
+                    "換気口No": sheet_name,
+                    "点検項目": item,
+                    "Excel_変状有無": reader.get_cell(sheet_name, row_num, 2),
+                    "Excel_形状": reader.get_cell(sheet_name, row_num, 3),
+                })
+
+        excel_df = pd.DataFrame(excel_rows)
 
 if pdf_file is not None and excel_file is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -206,7 +212,19 @@ if pdf_file is not None and excel_file is not None:
         if extra_in_pdf:
             add_notice("info", f"Excelには無いがPDFに存在する換気口No：{extra_in_pdf}")
 
-    pdf_df = pd.DataFrame(pdf_rows)
+    if pdf_rows:
+        pdf_df = pd.DataFrame(pdf_rows)
+    else:
+        # Excelのどの換気口Noも、PDFの中から1件も対応するページが見つからなかった
+        # 場合（PDFとExcelの組み合わせが合っていない可能性が高い）。
+        # 列が無い空のDataFrameになるとpd.mergeがエラーになってしまうため、
+        # 列だけ用意した空のDataFrameにしておき、分かりやすい警告を出す。
+        pdf_df = pd.DataFrame(columns=["PDFページ番号", "換気口No", "点検項目", "PDF_変状有無", "PDF_形状"])
+        add_notice(
+            "warning",
+            "Excelのどの換気口Noも、アップロードしたPDFの中から1件も対応するページが"
+            "見つかりませんでした。Excel点検表とPDF変状図の組み合わせが正しいか確認してください。"
+        )
 
 elif pdf_file is not None and excel_file is None:
     add_notice("warning", "PDFを比較するには、先にExcel点検表もアップロードしてください。")
