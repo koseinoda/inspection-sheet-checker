@@ -1,2 +1,103 @@
-# inspection-sheet-checker
-Web application for checking consistency between inspection diagrams (PDF) and inspection sheets (Excel).
+# 変状図・点検表 整合性チェックシステム
+
+## 概要
+
+本システムは、変状図（PDF）と点検表（Excel）の整合性を自動確認するためのWebアプリケーションです。
+
+従来は担当者が目視で確認していた作業を自動化し、転記ミスや確認漏れの削減、確認作業時間の短縮を目的としています。
+
+ユーザーは変状図PDFと点検表Excelをアップロードするだけで、一致・不一致・対象外の項目を自動判定できます。
+
+---
+
+## 主な機能
+
+- 変状図PDFのアップロード
+- 点検表Excelのアップロード
+- 換気口Noごとの照合
+- 一致件数の集計
+- 不一致件数の集計
+- 対象外件数の集計
+- 不一致箇所一覧表示
+- Webブラウザ上で利用可能
+
+---
+
+## 使用技術
+
+- Python
+- Streamlit
+- Pandas
+- OpenPyXL
+- GitHub
+- Streamlit Community Cloud
+
+---
+
+## システム構成
+
+| ファイル名 | 内容 |
+|------------|------|
+| app.py | Web画面 |
+| matching_logic.py | 判定ロジック |
+| diagnose_pdf.py | PDF解析処理 |
+| items_config.json | 判定設定 |
+| test_matching_logic.py | テストコード |
+| requirements.txt | ライブラリ一覧 |
+
+---
+
+## 利用手順
+
+1. 点検表Excelをアップロード
+2. 変状図PDFをアップロード
+3. 自動照合を実行
+4. 一致・不一致・対象外を確認
+5. 結果を確認
+
+---
+
+## 判定結果
+
+### 一致
+PDFとExcelの内容が一致している項目
+
+### 不一致
+PDFとExcelの内容が異なる項目
+
+### 対象外
+変状有無が空欄の項目
+
+---
+
+## 想定効果
+
+- 点検業務の効率化
+- 転記ミスの削減
+- チェック作業時間の短縮
+- 品質向上
+- 業務標準化
+
+---
+
+## Webアプリ
+
+Streamlit Community Cloud上で公開
+
+---
+
+## 今後の改善予定
+
+- PDFプレビュー機能
+- 不一致箇所へのジャンプ機能
+- OCR精度向上
+- 他設備への対応
+- 判定ロジックの汎用化
+
+---
+
+## 開発目的
+
+メトロ設計株式会社でのインターンシップにおける業務改善を目的として開発。
+
+変状図と点検表の整合性確認業務の効率化を目指したシステムです。tween inspection diagrams (PDF) and inspection sheets (Excel).
